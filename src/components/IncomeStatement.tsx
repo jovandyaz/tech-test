@@ -1,81 +1,81 @@
 import React, { FC, useState } from 'react'
+import {
+    DatePicker,
+    Button,
+    Tooltip,
+    Select,
+    Table,
+    Typography,
+    DatePickerProps,
+    SelectProps
+} from 'antd';
+import type { RangePickerProps } from 'antd/es/date-picker';
+import { SearchOutlined } from '@ant-design/icons';
+import { format } from 'date-fns'
+import moment from 'moment';
 import { Invoice } from '../types/invoice'
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import { Card, Col, DatePicker, Row, Select, Statistic, Table } from 'antd';
+import Statistics from './Statistics';
+
+const { Title } = Typography;
+const { Option } = Select;
 
 type IncomeStatementProps = {
     data: Invoice[]
     companies: string[]
-    getCompanyBalance: (company: string) => { invoices: number, expenses: number, balance: number }
+    dateRange: { start: any, end: any }
+    getCompanyBalance: (company: string, fromDate: string) => any
 }
 
 const IncomeStatement: FC<IncomeStatementProps> = ({
     data,
     companies,
+    dateRange,
     getCompanyBalance,
 }) => {
-    const { Option } = Select;
-    const [companyBalance, setCompanyBalance] = useState({ invoices: 0, expenses: 0, balance: 0 })
+    const { start, end } = dateRange
+    const [selectedCompany, setSelectedCompany] = useState('')
+    const [fromDate, setFromDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [companyBalance, setCompanyBalance] = useState([])
 
-    const handleCompanyChange = (value: string) => {
-        const { invoices, expenses, balance } = getCompanyBalance(value);
-        setCompanyBalance({ invoices, expenses, balance });
+    const handleCompanyChange: SelectProps['onChange'] = (company: string) => {
+        setSelectedCompany(company);
     };
 
-    const handleDateRangeChange = (value: string) => {
+    const disabledDate: RangePickerProps['disabledDate'] = current => {
+        return current && current >= moment(new Date(end));
+    };
 
+    const handleChange: DatePickerProps['onChange'] = (date, dateString) => {
+        setFromDate(dateString)
+    };
+
+    const handleSearch = () => {
+        const companyBalanceData = getCompanyBalance(selectedCompany, fromDate);
+        setCompanyBalance(companyBalanceData);
     };
 
     return (
         <>
-            <div>IncomeStatement</div>
+            <Title level={1}>IncomeStatement Component</Title>
             <Select defaultValue="Company" style={{ width: 120 }} onChange={handleCompanyChange}>
                 {companies.map(company => <Option key={company} value={company}>{company}</Option>)}
             </Select>
-            <DatePicker />
-            <Select defaultValue="Date Range" style={{ width: 120 }} onChange={handleDateRangeChange}>
-                <Option value="7">7 días</Option>
-                <Option value="14">14 días</Option>
-                <Option value="30">30 días</Option>
-            </Select>
+            <DatePicker
+                defaultValue={moment()}
+                disabledDate={disabledDate}
+                onChange={handleChange}
+            />
+            <Tooltip title="search">
+                <Button
+                    type="primary"
+                    shape="circle"
+                    onClick={handleSearch}
+                    disabled={!selectedCompany}
+                    icon={<SearchOutlined />}
+                />
+            </Tooltip>
             <Table dataSource={data} columns={COLUMNS} />
-            <Row gutter={16}>
-                <Col span={8}>
-                    <Card>
-                        <Statistic
-                            title="Incomes"
-                            value={companyBalance.invoices}
-                            precision={2}
-                            valueStyle={{ color: '#3f8600' }}
-                            prefix="$"
-                            suffix={<ArrowUpOutlined />}
-                        />
-                    </Card>
-                </Col>
-                <Col span={8}>
-                    <Card>
-                        <Statistic
-                            title="Expenses"
-                            value={companyBalance.expenses}
-                            precision={2}
-                            valueStyle={{ color: '#cf1322' }}
-                            prefix="$"
-                            suffix={<ArrowDownOutlined />}
-                        />
-                    </Card>
-                </Col>
-                <Col span={8}>
-                    <Card>
-                        <Statistic
-                            title="Balance"
-                            value={companyBalance.balance}
-                            precision={2}
-                            valueStyle={{ color: companyBalance.balance > 0 ? '#3f8600' : '#cf1322' }}
-                            prefix="$"
-                        />
-                    </Card>
-                </Col>
-            </Row>
+            {!!companyBalance.length && companyBalance.map(cb => <Statistics companyBalance={cb} />)}
         </>
     )
 }
